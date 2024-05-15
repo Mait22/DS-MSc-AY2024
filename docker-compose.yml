@@ -1,0 +1,158 @@
+version: "3.9"
+services:
+
+  ## XML cleaning pipeline  
+  elt_pipeline:
+    build:
+      context: ./elt_pipeline
+      dockerfile: Dockerfile
+    image: elt_pipeline:latest
+    container_name: elt_pipeline
+    volumes:
+      - ./elt_pipeline:/opt/dagster/app/elt_pipeline
+    env_file: .env
+    ports:
+    ## Restrict access to localhost only
+      - "127.0.0.1:4040:4040"
+    networks:
+      - dagster_network
+
+  ## Log cleaning pipeline  
+  log_elt_pipeline:
+    build:
+      context: ./log_elt_pipeline
+      dockerfile: Dockerfile
+    image: log_elt_pipeline:latest
+    container_name: log_elt_pipeline
+    volumes:
+      - ./log_elt_pipeline:/opt/dagster/app/log_elt_pipeline
+    env_file: .env
+    ports:
+      - "127.0.0.1:4044:4040"
+    networks:
+      - dagster_network
+
+  ## Dagster UI  
+  dagster_dagit:
+    image: dagster:latest
+    entrypoint:
+      - dagit
+      - -h
+      - "0.0.0.0"
+      - -p
+      - "3001"
+      - -w
+      - workspace.yaml
+    container_name: dagster_dagit
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./dagster_home:/opt/dagster/dagster_home
+    env_file: .env
+    networks:
+      - dagster_network
+    ports:
+      - "3001:3001"
+
+  ## Dagster Daemon process
+  dagster_daemon:
+    image: dagster:latest
+    entrypoint:
+      - dagster-daemon
+      - run
+    container_name: dagster_daemon
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./dagster_home:/opt/dagster/dagster_home
+    env_file: .env
+    networks:
+      - dagster_network
+
+  ## SFTP mounting D365 object storage SAMBA3 drive
+  sftp:
+      image: atmoz/sftp
+      volumes:
+        - data:/home/sftpuser/upload
+      ## Restrict access to local machine only
+      ports:
+        - "**.***.**.***:2222:22" # hidden for thesis' public repo
+      command: ${SFTP_USER}:${SFTP_PASS}:1001
+      env_file:
+        - .env
+      networks:
+       - sftp_network
+
+  ## Dagit and Dagster Daemon SQL storage  
+  dagster_psql:
+    image: postgres:14-alpine
+    container_name: dagster_psql
+    volumes:
+      - ./storage/postgres_data:/var/lib/postgresql/data
+    ## Restrict access to localhost only
+    ports:
+      - "127.0.0.1:5432:5432"
+    env_file: .env
+    networks:
+      - dagster_network
+
+  ## On-Prem object storage
+  minio:
+    image: minio/minio:latest
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    networks:
+      - storagenetwork
+    volumes:
+      - minio_data:/data
+    env_file: .env
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        minio server /data --console-address ":9001"
+
+  ## Silver and Gold layer on prem DW
+  dw_postgres:
+    image: postgres:16-alpine
+    ports:
+      - 5433:5432
+    volumes:
+      - dw_postgres:/var/lib/postgresql/data
+    env_file: dw_pg.env
+    networks:
+      - storagenetwork
+
+  ## Log dashboard
+  log_dashboard:
+    build:
+      context: ./streamlit/app
+      dockerfile: Dockerfile
+    image: streamlit:latest
+    container_name: log_dashboard
+    volumes:
+      - ./streamlit/app:/app
+    env_file: .env
+    ports:
+      - "8501:8501"
+    networks:
+      - storagenetwork
+      - dagster_network
+
+networks:
+  dagster_network:
+    driver: bridge
+    name: dagster_network
+  sftp_network:
+    driver: bridge
+    name: sftp_network
+  storagenetwork:
+    driver: bridge
+
+volumes:
+  minio_data: {}
+  dw_postgres: {}
+  data:
+    driver: local
+    driver_opts:
+      type: cifs
+      device: "//**.**.**.**/******/******" # hidden for thesis' public repo
+      o: "username=***,password=***,uid=1000,gid=1000"

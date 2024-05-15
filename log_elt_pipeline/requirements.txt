@@ -1,0 +1,16 @@
+lxml==5.0.0
+pandas==1.5.3
+dagit==1.6
+dagster==1.6
+dagster-postgres==0.22.0
+SQLAlchemy==1.4.46
+cryptography==38.0.3
+pyarrow==11.0.0
+fsspec==2023.3.0
+minio==7.2.3
+connectorx==0.3.1
+pytz==2022.7.1
+pysftp==0.2.9
+pyodbc==5.0.1
+psycopg2==2.9.9
+

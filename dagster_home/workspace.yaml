@@ -1,0 +1,11 @@
+load_from:
+# XML pipeline 
+  - grpc_server:
+      host: elt_pipeline
+      port: 4000
+      location_name: "elt_pipeline"
+# Level crossing logs
+  - grpc_server:
+      host: log_elt_pipeline
+      port: 4444
+      location_name: "log_elt_pipeline"

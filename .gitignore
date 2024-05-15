@@ -1,0 +1,14 @@
+streamlit/app/.streamlit/*
+dw_pg.env
+venv/
+Pipfile.lock
+.env
+.cache*
+__pycache__/
+storage/
+.coverage
+dagster_home/logs/
+dagster_home/.logs_queue/
+dagster_home/.telemetry/
+dagster_home/history/
+dagster_home/schedules/*
